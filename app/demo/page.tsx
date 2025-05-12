@@ -1,14 +1,47 @@
-"use client"
+'use client'
 
+import { useState } from "react"
 import { useLanguage } from "@/components/language-provider"
 import { Button } from "@/components/ui/button"
-import { ArrowRight, Upload, MessageSquare, BarChart } from "lucide-react"
-import Link from "next/link"
-import { useState } from "react"
-import { marked } from "marked"
+import { Card, CardContent } from "@/components/ui/card"
+import { Upload, MessageSquare, BarChart } from "lucide-react"
+import Image from "next/image"
 
 export default function Demo() {
   const { t } = useLanguage()
+  const [file, setFile] = useState<File | null>(null)
+  const [result, setResult] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleUpload = async () => {
+    if (!file) {
+      setError(t("demo.error.noFile"))
+      return
+    }
+
+    const formData = new FormData()
+    formData.append("uploaded_pdf", file)
+
+    try {
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        body: formData,
+      })
+
+      const data = await res.json()
+
+      if (data.error) {
+        setError(t("demo.error.analysis") + "：" + data.error)
+        setResult(null)
+      } else {
+        setResult(data.result || t("demo.result.none"))
+        setError(null)
+      }
+    } catch (e) {
+      setError(t("demo.error.uploadFailed"))
+      setResult(null)
+    }
+  }
 
   const steps = [
     {
@@ -22,155 +55,57 @@ export default function Demo() {
       id: 2,
       title: t("demo.step2.title"),
       description: t("demo.step2.description"),
-      icon: <MessageSquare className="h-12 w-12 text-green-600" />,
+      icon: <MessageSquare className="h-12 w-12 text-blue-600" />,
       image: "/placeholder.svg?height=200&width=300",
     },
     {
       id: 3,
       title: t("demo.step3.title"),
       description: t("demo.step3.description"),
-      icon: <BarChart className="h-12 w-12 text-green-600" />,
+      icon: <BarChart className="h-12 w-12 text-purple-600" />,
       image: "/placeholder.svg?height=200&width=300",
     },
   ]
 
-  const [fileName, setFileName] = useState("")
-  const [file, setFile] = useState<File | null>(null)
-  const [result, setResult] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
-
-  const handlePdfUpload = async (file: File) => {
-    setError("")
-    setResult("")
-    setLoading(true)
-
-    try {
-      const form = new FormData()
-      form.append("file", file)
-
-      const res = await fetch("/api/analyze", {
-        method: "POST",
-        body: form,
-      })
-
-      const data = await res.json()
-      if (!res.ok || !data.result) {
-        throw new Error(data.result || "無法取得分析結果")
-      }
-
-      setResult(data.result)
-    } catch (err: any) {
-      setError(`分析過程發生錯誤：${err.message || "未知錯誤"}`)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const retry = () => {
-    if (file) {
-      handlePdfUpload(file)
-    }
-  }
-
   return (
-    <div className="flex flex-col">
-      {/* Hero Section */}
-      <section className="bg-gradient-to-b from-green-50 to-white py-16">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-4xl font-bold text-green-800 sm:text-5xl">{t("demo.hero.title")}</h1>
-          <p className="mt-6 max-w-3xl mx-auto text-lg text-gray-600">{t("demo.hero.subtitle")}</p>
-        </div>
-      </section>
-
-      {/* Demo Steps Section */}
-      <section className="py-16 bg-white">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="space-y-16">
-            {steps.map((step) => (
-              <div key={step.id} className="grid grid-cols-1 gap-8 md:grid-cols-2 items-center">
-                <div className={`${step.id % 2 === 0 ? "md:order-2" : ""}`}>
-                  <div className="flex items-center mb-4">
-                    <div className="mr-4">{step.icon}</div>
-                    <h3 className="text-2xl font-bold text-green-800">{step.title}</h3>
-                  </div>
-                  <p className="text-gray-600">{step.description}</p>
-                </div>
-                <div className={`${step.id % 2 === 0 ? "md:order-1" : ""}`}>
-                  <img
-                    src={step.image || "/placeholder.svg"}
-                    alt={`Demo Step ${step.id}`}
-                    className="rounded-lg shadow-lg w-full"
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Interactive Upload */}
-      <section className="py-16 bg-green-50">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-white p-8 rounded-lg shadow-md">
-            <h2 className="text-2xl font-bold text-center text-green-800 mb-8">
-              Interactive Demo Experience
-            </h2>
-
-            <div className="mb-4">
-              <input
-                type="file"
-                accept=".pdf"
-                onChange={(e) => {
-                  const selected = e.target.files?.[0]
-                  if (selected) {
-                    setFile(selected)
-                    setFileName(selected.name)
-                    handlePdfUpload(selected)
-                  }
-                }}
-              />
-              {fileName && <p className="mt-2 text-sm text-gray-600">✅ 已選擇檔案：{fileName}</p>}
+    <div className="space-y-8">
+      {steps.map((step) => (
+        <Card key={step.id}>
+          <CardContent className="flex items-center space-x-4 py-8">
+            {step.icon}
+            <div className="flex-1">
+              <h3 className="text-xl font-semibold">{step.title}</h3>
+              <p className="text-gray-500">{step.description}</p>
             </div>
+            <Image src={step.image} alt={step.title} width={200} height={150} />
+          </CardContent>
+        </Card>
+      ))}
 
-            {loading && <p className="text-green-700 font-semibold mt-4">⏳ 分析中，請稍候…</p>}
-
-            {error && (
-              <div className="mt-4 text-red-600 font-medium">
-                ❌ {error}
-                <div className="mt-2">
-                  <Button variant="outline" onClick={retry}>
-                    🔁 重新嘗試
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {result && (
-              <div className="mt-8 p-6 border rounded bg-white whitespace-pre-wrap overflow-auto text-sm leading-relaxed">
-                <div dangerouslySetInnerHTML={{ __html: marked(result) }} />
-              </div>
-            )}
+      <div className="space-y-4">
+        <input
+          type="file"
+          accept=".pdf"
+          onChange={(e) => {
+            const selected = e.target.files?.[0] || null
+            setFile(selected)
+            setError(null)
+            setResult(null)
+          }}
+        />
+        {file && (
+          <p className="text-green-600">{t("demo.selectedFile")}：{file.name}</p>
+        )}
+        {error && (
+          <p className="text-red-600">❌ {t("demo.error.analysis")}：{error}</p>
+        )}
+        {result && (
+          <div className="bg-gray-100 p-4 rounded text-black whitespace-pre-wrap">
+            {result}
           </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-16 bg-green-700 text-white">
-        <div className="container mx-auto px-4 text-center sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold">{t("demo.cta.title")}</h2>
-          <p className="mt-4 max-w-2xl mx-auto text-green-100">{t("demo.cta.subtitle1")}</p>
-          <p className="mt-4 max-w-2xl mx-auto text-green-100">{t("demo.cta.subtitle2")}</p>
-          <div className="mt-8">
-            <Link href="/contact">
-              <Button className="bg-white text-green-700 hover:bg-green-50">
-                {t("demo.cta.button")}
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </section>
+        )}
+        <Button onClick={handleUpload}>{t("demo.button.upload")}</Button>
+      </div>
     </div>
   )
 }
