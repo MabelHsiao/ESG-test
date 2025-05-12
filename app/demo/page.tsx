@@ -2,7 +2,6 @@
 
 import { useLanguage } from "@/components/language-provider"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { ArrowRight, Upload, MessageSquare, BarChart } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
@@ -56,18 +55,19 @@ export default function Demo() {
         })
 
         const data = await res.json()
-        if (!res.ok || !data.result) {
-          throw new Error(data.result || "伺服器未回傳有效內容")
+
+        if (!res.ok || !data.evaluation_table) {
+          throw new Error("分析失敗，請確認報告內容是否正確")
         }
 
-        setResult(data.result)
+        setResult(data.evaluation_table)
       } catch (err: any) {
-        setError(`分析過程發生錯誤：${err.message || "未知錯誤"}`)
+        console.error("上傳錯誤：", err)
+        setError(`分析過程發生錯誤，請稍後再試`)
       } finally {
         setLoading(false)
       }
     }
-
     reader.readAsDataURL(file)
   }
 
@@ -104,7 +104,7 @@ export default function Demo() {
                 </div>
                 <div className={`${step.id % 2 === 0 ? "md:order-1" : ""}`}>
                   <img
-                    src={step.image || "/placeholder.svg"}
+                    src={step.image}
                     alt={`Demo Step ${step.id}`}
                     className="rounded-lg shadow-lg w-full"
                   />
