@@ -42,39 +42,33 @@ export default function Demo() {
 
   const handlePdfUpload = async (file: File) => {
     setError("")
-    const reader = new FileReader()
-    reader.onload = async () => {
-      try {
-        const base64 = (reader.result as string).split(",")[1]
-        setLoading(true)
+    setResult("")
+    setLoading(true)
 
-        const res = await fetch("/api/analyze", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ base64 }),
-        })
+    try {
+      const form = new FormData()
+      form.append("file", file)
 
-        const data = await res.json()
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        body: form,
+      })
 
-        if (!res.ok || !data.evaluation_table) {
-          throw new Error("分析失敗，請確認報告內容是否正確")
-        }
-
-        setResult(data.evaluation_table)
-      } catch (err: any) {
-        console.error("上傳錯誤：", err)
-        setError(`分析過程發生錯誤，請稍後再試`)
-      } finally {
-        setLoading(false)
+      const data = await res.json()
+      if (!res.ok || !data.result) {
+        throw new Error(data.result || "無法取得分析結果")
       }
+
+      setResult(data.result)
+    } catch (err: any) {
+      setError(`分析過程發生錯誤：${err.message || "未知錯誤"}`)
+    } finally {
+      setLoading(false)
     }
-    reader.readAsDataURL(file)
   }
 
   const retry = () => {
     if (file) {
-      setResult("")
-      setError("")
       handlePdfUpload(file)
     }
   }
@@ -104,7 +98,7 @@ export default function Demo() {
                 </div>
                 <div className={`${step.id % 2 === 0 ? "md:order-1" : ""}`}>
                   <img
-                    src={step.image}
+                    src={step.image || "/placeholder.svg"}
                     alt={`Demo Step ${step.id}`}
                     className="rounded-lg shadow-lg w-full"
                   />
@@ -115,7 +109,7 @@ export default function Demo() {
         </div>
       </section>
 
-      {/* Interactive Demo Section */}
+      {/* Interactive Upload */}
       <section className="py-16 bg-green-50">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-white p-8 rounded-lg shadow-md">
@@ -132,19 +126,14 @@ export default function Demo() {
                   if (selected) {
                     setFile(selected)
                     setFileName(selected.name)
-                    setResult("")
                     handlePdfUpload(selected)
                   }
                 }}
               />
-              {fileName && (
-                <p className="mt-2 text-sm text-gray-600">✅ 已選擇檔案：{fileName}</p>
-              )}
+              {fileName && <p className="mt-2 text-sm text-gray-600">✅ 已選擇檔案：{fileName}</p>}
             </div>
 
-            {loading && (
-              <p className="text-green-700 font-semibold mt-4">⏳ 分析中，請稍候…</p>
-            )}
+            {loading && <p className="text-green-700 font-semibold mt-4">⏳ 分析中，請稍候…</p>}
 
             {error && (
               <div className="mt-4 text-red-600 font-medium">
