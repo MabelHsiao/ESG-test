@@ -40,23 +40,42 @@ export default function Demo() {
   const [loading, setLoading] = useState(false)
 
   const handlePdfUpload = async (file: File) => {
-    const reader = new FileReader()
-    reader.onload = async () => {
-      const base64 = (reader.result as string).split(",")[1]
-
+    try {
+      setFileName(file.name)
       setLoading(true)
-      const res = await fetch("/api/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ base64 }),
-      })
+      setResult("⏳ 分析中，請稍候…")
 
-      const data = await res.json()
-      setResult(data.result)
+      const reader = new FileReader()
+      reader.onload = async () => {
+        try {
+          const base64 = (reader.result as string).split(",")[1]
+          const res = await fetch("/api/upload", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ base64 }),
+          })
+
+          const data = await res.json()
+
+          if (!res.ok) {
+            setResult(data.result || "❌ 分析失敗，請稍後再試")
+          } else {
+            setResult(data.result || "⚠️ 分析完成，但沒有收到結果")
+          }
+        } catch (err) {
+          console.error("❌ 上傳發生錯誤：", err)
+          setResult("❌ 分析過程發生錯誤，請稍後再試")
+        } finally {
+          setLoading(false)
+        }
+      }
+
+      reader.readAsDataURL(file)
+    } catch (err) {
+      console.error("❌ 檔案讀取錯誤：", err)
+      setResult("❌ 檔案讀取失敗")
       setLoading(false)
     }
-
-    reader.readAsDataURL(file)
   }
 
   return (
@@ -110,7 +129,6 @@ export default function Demo() {
                 onChange={(e) => {
                   const file = e.target.files?.[0]
                   if (file) {
-                    setFileName(file.name)
                     handlePdfUpload(file)
                   }
                 }}
