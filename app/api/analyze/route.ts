@@ -5,7 +5,7 @@ export async function POST(req: NextRequest) {
   const file = formData.get("uploaded_pdf") as File
 
   if (!file) {
-    return NextResponse.json({ error: "No file received" }, { status: 400 })
+    return NextResponse.json({ error: "未收到檔案" }, { status: 400 })
   }
 
   const buffer = await file.arrayBuffer()
@@ -13,10 +13,10 @@ export async function POST(req: NextRequest) {
   const uploadForm = new FormData()
   uploadForm.append("uploaded_pdf", blob, file.name)
 
-  const response = await fetch("https://api.dify.ai/v1/workflows/<你的_workflow_id>/execute", {
+  const response = await fetch("https://udify.app/v1/workflows/T5PajDgStcwpqrzk/execute", {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${process.env.DIFY_API_KEY}`,
+      Authorization: `Bearer ${process.env.DIFY_API_KEY}`,
     },
     body: uploadForm,
   })
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
   const contentType = response.headers.get("content-type") || ""
   if (!contentType.includes("application/json")) {
     const html = await response.text()
-    return NextResponse.json({ error: "Dify 回傳非 JSON：\n" + html }, { status: 500 })
+    return NextResponse.json({ error: "Dify 回傳非 JSON：", html }, { status: 500 })
   }
 
   const data = await response.json()
