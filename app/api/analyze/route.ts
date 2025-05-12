@@ -1,54 +1,39 @@
-import { NextResponse } from "next/server"
-
 export async function POST(req: Request) {
   try {
-    const { base64 } = await req.json()
+    const { base64, filename = "report.pdf" } = await req.json()
 
-    if (!process.env.DIFY_API_KEY) {
-      return NextResponse.json(
-        { result: "❌ DIFY_API_KEY 環境變數未設定，請聯絡系統管理員" },
-        { status: 500 }
-      )
-    }
+    const buffer = Buffer.from(base64, "base64")
+    const form = new FormData()
+    form.append("file", new Blob([buffer]), filename)
 
-    const res = await fetch("https://api.dify.ai/v1/workflows/T5PajDgStcwpqrzk/run", {
+    const uploadRes = await fetch("https://api.dify.ai/v1/files/upload", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.DIFY_API_KEY}`,
-        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.DIFY_API_KEY!}`,
       },
-      body: JSON.stringify({
-        inputs: { uploaded_pdf: base64 },
-      }),
+      body: form,
     })
 
-    const data = await res.json()
+    const { id: file_id } = await uploadRes.json()
 
-    if (!res.ok) {
-      // 顯示 Dify 回傳錯誤訊息
-      return NextResponse.json(
-        {
-          result:
-            data?.message || data?.error || "❌ Dify 回傳錯誤，請檢查 Workflow 是否設錯或 API Key 無效",
-        },
-        { status: 500 }
-      )
-    }
-
-    if (!data.outputs?.evaluation_table) {
-      return NextResponse.json(
-        { result: "⚠️ 分析完成但未回傳 evaluation_table，請確認 prompt 輸出變數是否設為 evaluation_table" },
-        { status: 200 }
-      )
-    }
-
-    return NextResponse.json({ result: data.outputs.evaluation_table })
-  } catch (err: any) {
-    return NextResponse.json(
-      {
-        result: `❌ 伺服器處理錯誤：${err?.message || JSON.stringify(err)}`,
+    const runRes = await fetch("https://api.dify.ai/v1/workflows/T5PajDgStcwpqrzk/run", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.DIFY_API_KEY!}`,
+        "Content-Type": "application/json",
       },
-      { status: 500 }
-    )
+      body: JSON.stringify({ inputs: { uploaded_pdf: file_id } }),
+    })
+
+    const data = await runRes.json()
+
+    if (!runRes.ok) {
+      return NextResponse.json({ result: data.message || "Workflow 執行錯誤" }, { status: 500 })
+    }
+
+    return NextResponse.json({ result: data.outputs?.evaluation_table || "⚠️ 無回傳結果" })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    return NextResponse.json({ result: `❌ 錯誤：${message}` }, { status: 500 })
   }
 }
