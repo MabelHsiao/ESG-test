@@ -36,45 +36,46 @@ export default function Demo() {
   ]
 
   const [fileName, setFileName] = useState("")
+  const [file, setFile] = useState<File | null>(null)
   const [result, setResult] = useState("")
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
 
   const handlePdfUpload = async (file: File) => {
-    try {
-      setFileName(file.name)
-      setLoading(true)
-      setResult("⏳ 分析中，請稍候…")
+    setError("")
+    const reader = new FileReader()
+    reader.onload = async () => {
+      try {
+        const base64 = (reader.result as string).split(",")[1]
+        setLoading(true)
 
-      const reader = new FileReader()
-      reader.onload = async () => {
-        try {
-          const base64 = (reader.result as string).split(",")[1]
-          const res = await fetch("/api/upload", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ base64 }),
-          })
+        const res = await fetch("/api/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ base64 }),
+        })
 
-          const data = await res.json()
-
-          if (!res.ok) {
-            setResult(data.result || "❌ 分析失敗，請稍後再試")
-          } else {
-            setResult(data.result || "⚠️ 分析完成，但沒有收到結果")
-          }
-        } catch (err) {
-          console.error("❌ 上傳發生錯誤：", err)
-          setResult("❌ 分析過程發生錯誤，請稍後再試")
-        } finally {
-          setLoading(false)
+        const data = await res.json()
+        if (!res.ok || !data.result) {
+          throw new Error(data.result || "伺服器未回傳有效內容")
         }
-      }
 
-      reader.readAsDataURL(file)
-    } catch (err) {
-      console.error("❌ 檔案讀取錯誤：", err)
-      setResult("❌ 檔案讀取失敗")
-      setLoading(false)
+        setResult(data.result)
+      } catch (err: any) {
+        setError(`分析過程發生錯誤：${err.message || "未知錯誤"}`)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    reader.readAsDataURL(file)
+  }
+
+  const retry = () => {
+    if (file) {
+      setResult("")
+      setError("")
+      handlePdfUpload(file)
     }
   }
 
@@ -127,9 +128,12 @@ export default function Demo() {
                 type="file"
                 accept=".pdf"
                 onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  if (file) {
-                    handlePdfUpload(file)
+                  const selected = e.target.files?.[0]
+                  if (selected) {
+                    setFile(selected)
+                    setFileName(selected.name)
+                    setResult("")
+                    handlePdfUpload(selected)
                   }
                 }}
               />
@@ -140,6 +144,17 @@ export default function Demo() {
 
             {loading && (
               <p className="text-green-700 font-semibold mt-4">⏳ 分析中，請稍候…</p>
+            )}
+
+            {error && (
+              <div className="mt-4 text-red-600 font-medium">
+                ❌ {error}
+                <div className="mt-2">
+                  <Button variant="outline" onClick={retry}>
+                    🔁 重新嘗試
+                  </Button>
+                </div>
+              </div>
             )}
 
             {result && (
