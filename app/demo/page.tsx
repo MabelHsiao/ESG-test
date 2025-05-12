@@ -1,40 +1,15 @@
 "use client"
 
-import { useState } from "react"
-import ReactMarkdown from "react-markdown"
 import { useLanguage } from "@/components/language-provider"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { ArrowRight, Upload, MessageSquare, BarChart } from "lucide-react"
 import Link from "next/link"
+import { useState } from "react"
+import { marked } from "marked"
 
 export default function Demo() {
   const { t } = useLanguage()
-  const [result, setResult] = useState("請上傳 ESG PDF 報告")
-
-  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return alert("請選擇 PDF 檔案")
-
-    const base64 = await toBase64(file)
-    const res = await fetch("/api/analyze", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ base64 }),
-    })
-
-    const json = await res.json()
-    setResult(json.result || "⚠️ 無回傳結果")
-  }
-
-  const toBase64 = (file: File) => {
-    return new Promise<string>((resolve, reject) => {
-      const reader = new FileReader()
-      reader.readAsDataURL(file)
-      reader.onload = () => resolve(reader.result as string)
-      reader.onerror = reject
-    })
-  }
 
   const steps = [
     {
@@ -60,17 +35,37 @@ export default function Demo() {
     },
   ]
 
+  const [fileName, setFileName] = useState("")
+  const [result, setResult] = useState("")
+  const [loading, setLoading] = useState(false)
+
+  const handlePdfUpload = async (file: File) => {
+    const reader = new FileReader()
+    reader.onload = async () => {
+      const base64 = (reader.result as string).split(",")[1]
+
+      setLoading(true)
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ base64 }),
+      })
+
+      const data = await res.json()
+      setResult(data.result)
+      setLoading(false)
+    }
+
+    reader.readAsDataURL(file)
+  }
+
   return (
     <div className="flex flex-col">
       {/* Hero Section */}
       <section className="bg-gradient-to-b from-green-50 to-white py-16">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-4xl font-bold text-green-800 sm:text-5xl">
-            {t("demo.hero.title")}
-          </h1>
-          <p className="mt-6 max-w-3xl mx-auto text-lg text-gray-600">
-            {t("demo.hero.subtitle")}
-          </p>
+          <h1 className="text-4xl font-bold text-green-800 sm:text-5xl">{t("demo.hero.title")}</h1>
+          <p className="mt-6 max-w-3xl mx-auto text-lg text-gray-600">{t("demo.hero.subtitle")}</p>
         </div>
       </section>
 
@@ -79,16 +74,11 @@ export default function Demo() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="space-y-16">
             {steps.map((step) => (
-              <div
-                key={step.id}
-                className="grid grid-cols-1 gap-8 md:grid-cols-2 items-center"
-              >
+              <div key={step.id} className="grid grid-cols-1 gap-8 md:grid-cols-2 items-center">
                 <div className={`${step.id % 2 === 0 ? "md:order-2" : ""}`}>
                   <div className="flex items-center mb-4">
                     <div className="mr-4">{step.icon}</div>
-                    <h3 className="text-2xl font-bold text-green-800">
-                      {step.title}
-                    </h3>
+                    <h3 className="text-2xl font-bold text-green-800">{step.title}</h3>
                   </div>
                   <p className="text-gray-600">{step.description}</p>
                 </div>
@@ -110,29 +100,35 @@ export default function Demo() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-white p-8 rounded-lg shadow-md">
             <h2 className="text-2xl font-bold text-center text-green-800 mb-8">
-              {t("demo.interactive.title")}
+              Interactive Demo Experience
             </h2>
 
-            <input
-              type="file"
-              accept=".pdf"
-              onChange={handlePdfUpload}
-              className="mb-4 w-full border p-2 rounded-md"
-            />
-
-            <div className="prose bg-gray-50 p-4 rounded-md overflow-auto max-h-[500px]">
-              <ReactMarkdown>{result}</ReactMarkdown>
+            <div className="mb-4">
+              <input
+                type="file"
+                accept=".pdf"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) {
+                    setFileName(file.name)
+                    handlePdfUpload(file)
+                  }
+                }}
+              />
+              {fileName && (
+                <p className="mt-2 text-sm text-gray-600">✅ 已選擇檔案：{fileName}</p>
+              )}
             </div>
 
-            <div className="mt-10">
-              <iframe
-                src="https://app.dify.ai/embed/chat?app_id=YOUR_CHATBOT_ID&share_code=YOUR_SHARE_CODE"
-                width="100%"
-                height="500"
-                style={{ border: "1px solid #ccc", borderRadius: "8px" }}
-                title="SustainEval AI Chatbot"
-              ></iframe>
-            </div>
+            {loading && (
+              <p className="text-green-700 font-semibold mt-4">⏳ 分析中，請稍候…</p>
+            )}
+
+            {result && (
+              <div className="mt-8 p-6 border rounded bg-white whitespace-pre-wrap overflow-auto text-sm leading-relaxed">
+                <div dangerouslySetInnerHTML={{ __html: marked(result) }} />
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -141,12 +137,8 @@ export default function Demo() {
       <section className="py-16 bg-green-700 text-white">
         <div className="container mx-auto px-4 text-center sm:px-6 lg:px-8">
           <h2 className="text-3xl font-bold">{t("demo.cta.title")}</h2>
-          <p className="mt-4 max-w-2xl mx-auto text-green-100">
-            {t("demo.cta.subtitle1")}
-          </p>
-          <p className="mt-4 max-w-2xl mx-auto text-green-100">
-            {t("demo.cta.subtitle2")}
-          </p>
+          <p className="mt-4 max-w-2xl mx-auto text-green-100">{t("demo.cta.subtitle1")}</p>
+          <p className="mt-4 max-w-2xl mx-auto text-green-100">{t("demo.cta.subtitle2")}</p>
           <div className="mt-8">
             <Link href="/contact">
               <Button className="bg-white text-green-700 hover:bg-green-50">
