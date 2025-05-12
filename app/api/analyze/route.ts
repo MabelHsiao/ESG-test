@@ -17,5 +17,13 @@ export async function POST(req: Request) {
   })
 
   const data = await response.json()
-  return NextResponse.json({ result: data.outputs?.evaluation_table || "⚠️ 無回傳結果" })
+
+  console.log("[📦 Dify 回應]", JSON.stringify(data, null, 2))
+
+  return NextResponse.json({
+    result:
+      data.outputs?.evaluation_table ||
+      data.outputs?.result ||
+      "⚠️ 無回傳結果",
+  })
 }
